@@ -1,7 +1,7 @@
 {
   "name": "n8n-nodes-doccape",
-  "version": "0.1.0",
-  "description": "n8n node to pseudonymize or anonymize PII in text using the Doccape API",
+  "version": "0.1.1",
+  "description": "n8n node to redact (pseudonymize or anonymize) PII in text using the Doccape API",
   "keywords": [
     "n8n-community-node-package"
   ],
