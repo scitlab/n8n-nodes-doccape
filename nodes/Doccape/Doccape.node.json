@@ -1,0 +1,21 @@
+{
+	"node": "n8n-nodes-base.doccapeapi",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": [
+		"Development",
+		"Developer Tools"
+	],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://api.doccape.de/api-docs"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://api.doccape.de/api-docs"
+			}
+		]
+	}
+}
