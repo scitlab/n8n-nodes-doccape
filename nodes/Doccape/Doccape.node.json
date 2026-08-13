@@ -1,0 +1,21 @@
+{
+	"node": "n8n-nodes-doccape.doccape",
+	"nodeVersion": "2.0",
+	"codexVersion": "1.0",
+	"categories": [
+		"Development",
+		"Developer Tools"
+	],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://github.com/scitlab/n8n-nodes-doccape#credentials"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/scitlab/n8n-nodes-doccape#n8n-nodes-doccape"
+			}
+		]
+	}
+}

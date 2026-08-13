@@ -1,0 +1,123 @@
+{
+	"name": "Anonymize-File",
+	"nodes": [
+		{
+			"parameters": {
+				"formTitle": "File Upload",
+				"formFields": {
+					"values": [
+						{
+							"fieldLabel": "File",
+							"fieldType": "file",
+							"multipleFiles": false,
+							"requiredField": true
+						}
+					]
+				},
+				"options": {}
+			},
+			"type": "n8n-nodes-base.formTrigger",
+			"typeVersion": 2.2,
+			"position": [
+				-480,
+				0
+			],
+			"id": "9dd855c1-08c0-4c6d-9916-ad671ac8f41e",
+			"name": "On form submission",
+			"webhookId": "c6f2f842-29fb-440b-af63-7cb1f376f68c"
+		},
+		{
+			"parameters": {
+				"resource": "anonymizeFile",
+				"operation": "anonymizeFile",
+				"binaryPropertyName": "File",
+				"deleteAfterAnonymization": true,
+				"includeDetectedPiis": true,
+				"pollingIntervalSeconds": 5,
+				"pollingTimeoutMinutes": 10,
+				"textLabelsFile": "PER,STR,LOC,ORG",
+				"usePseudonymsFile": true,
+				"imageLabelsFile": "face",
+				"imageAnonymizationType": "MASK"
+			},
+			"type": "n8n-nodes-doccape.doccape",
+			"typeVersion": 2,
+			"position": [
+				-240,
+				0
+			],
+			"id": "c45becf7-1bf9-4241-a910-f8f72425b44e",
+			"name": "Anonymize File",
+			"credentials": {}
+		},
+		{
+			"parameters": {
+				"operation": "write",
+				"fileName": "=/home/node/{{ $binary.data.fileName }}",
+				"dataPropertyName": "data",
+				"options": {
+					"append": false
+				}
+			},
+			"type": "n8n-nodes-base.readWriteFile",
+			"typeVersion": 1,
+			"position": [
+				0,
+				0
+			],
+			"id": "9366cf90-489f-4e3e-b59e-390aff7b8096",
+			"name": "Save anonymized file"
+		},
+		{
+			"parameters": {
+				"content": "## File anonymization\n\n1. Upload a file via the form.\n2. **Anonymize File** uploads to doccape, polls until processing finishes, and returns the anonymized file as binary data. With **Include Detected PIIs** enabled, detections are also available on `$json.piis`. They include sensitive information and should not be shared.\n3. The result is saved to disk.\n\nConfigure your **Doccape API** credential before running.",
+				"height": 320,
+				"width": 420
+			},
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				-520,
+				-280
+			],
+			"id": "9ee02962-0224-4680-b59e-c12d7afe2b38",
+			"name": "Sticky Note"
+		}
+	],
+	"pinData": {},
+	"connections": {
+		"On form submission": {
+			"main": [
+				[
+					{
+						"node": "Anonymize File",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Anonymize File": {
+			"main": [
+				[
+					{
+						"node": "Save anonymized file",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"active": false,
+	"settings": {
+		"executionOrder": "v1"
+	},
+	"versionId": "8a6b9d0e-1f2c-4d5e-9f0a-1b2c3d4e5f6a",
+	"meta": {
+		"templateCredsSetupCompleted": true,
+		"instanceId": "2bd0699b5760579f27f162a7ec2aff1b03ea365014fedad88704d56556efa2d1"
+	},
+	"id": "GMvyvQsZX23trJtG",
+	"tags": []
+}
