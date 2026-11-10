@@ -1,0 +1,130 @@
+{
+	"name": "Anonymize-Text-Then-Agent",
+	"nodes": [
+		{
+			"parameters": {
+				"options": {}
+			},
+			"type": "@n8n/n8n-nodes-langchain.chatTrigger",
+			"typeVersion": 1.1,
+			"position": [
+				-480,
+				0
+			],
+			"id": "a1b2c3d4-e5f6-4789-a012-3456789abcde",
+			"name": "When chat message received",
+			"webhookId": "doccape-text-agent-chat"
+		},
+		{
+			"parameters": {
+				"resource": "anonymizeText",
+				"operation": "anonymizeText",
+				"text": "={{ $json.chatInput }}",
+				"usePseudonyms": true,
+				"textLabels": "PER,STR,LOC,ORG,MAIL,TEL"
+			},
+			"type": "@scitlab/n8n-nodes-doccape.doccape",
+			"typeVersion": 2,
+			"position": [
+				-240,
+				0
+			],
+			"id": "b2c3d4e5-f6a7-4890-b123-456789abcdef",
+			"name": "Anonymize Text",
+			"credentials": {}
+		},
+		{
+			"parameters": {
+				"promptType": "define",
+				"text": "={{ $json.pseudonymizedText }}",
+				"options": {}
+			},
+			"type": "@n8n/n8n-nodes-langchain.agent",
+			"typeVersion": 1.8,
+			"position": [
+				0,
+				0
+			],
+			"id": "c3d4e5f6-a7b8-4901-c234-56789abcdef0",
+			"name": "AI Agent"
+		},
+		{
+			"parameters": {
+				"model": {
+					"__rl": true,
+					"mode": "list",
+					"value": "gpt-4.1-mini"
+				},
+				"options": {}
+			},
+			"type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+			"typeVersion": 1.2,
+			"position": [
+				0,
+				220
+			],
+			"id": "d4e5f6a7-b8c9-4012-d345-6789abcdef01",
+			"name": "OpenAI Chat Model",
+			"credentials": {}
+		},
+		{
+			"parameters": {
+				"content": "## Privacy-preserving agent\n\n1. Chat input is anonymized with doccape.\n2. Only the anonymized text is sent to the AI agent.\n\nConfigure **Doccape API** and **OpenAI** credentials before running.",
+				"height": 240,
+				"width": 420
+			},
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				-520,
+				-240
+			],
+			"id": "e5f6a7b8-c9d0-4123-e456-789abcdef012",
+			"name": "Sticky Note"
+		}
+	],
+	"connections": {
+		"When chat message received": {
+			"main": [
+				[
+					{
+						"node": "Anonymize Text",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Anonymize Text": {
+			"main": [
+				[
+					{
+						"node": "AI Agent",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"OpenAI Chat Model": {
+			"ai_languageModel": [
+				[
+					{
+						"node": "AI Agent",
+						"type": "ai_languageModel",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"pinData": {},
+	"settings": {
+		"executionOrder": "v1"
+	},
+	"staticData": null,
+	"tags": [],
+	"triggerCount": 1,
+	"updatedAt": "2026-07-24T00:00:00.000Z",
+	"versionId": "4"
+}

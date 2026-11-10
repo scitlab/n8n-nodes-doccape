@@ -1,0 +1,391 @@
+{
+    "name": "Doccape HR Application Comparison (pseudonymized)",
+    "nodes": [
+        {
+            "parameters": {
+                "content": "## HR CV Ranker\n\nRank PDF applications against a job description. The model only sees pseudonyms; real names come back in the reasons for a person to review.\n\n1. **Application Form** (test URL): job description and multiple application PDFs.\n2. **Text Extraction**: split PDFs → extract text → **Concatenate Texts** (uses `--- DOCUMENT n ---` separators).\n3. **Anonymization**: **Anonymize Concatenated Text** (doccape). Use `detection.detections` only in trusted code nodes (e.g. **Prepare Ranking**)—never in the agent prompt.\n4. **AI Ranking**: agent ranks by fit; a later step puts the real names back into the reasons for the HTML result.\n\nConfigure **Doccape API** and **OpenAI Chat Model** before running.",
+                "height": 380,
+                "width": 440,
+                "color": 5
+            },
+            "id": "3a56efea-78b7-49e1-ac72-e5e2fbf7b08a",
+            "name": "Sticky Note HR CV Ranker",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [
+                -1088,
+                -256
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "completion",
+                "respondWith": "showText",
+                "responseText": "={{ $json.htmlReport }}"
+            },
+            "id": "98f7bcbe-e8b7-49d5-99df-28cd3888dadb",
+            "name": "Form Completion",
+            "type": "n8n-nodes-base.form",
+            "typeVersion": 2.5,
+            "position": [
+                1440,
+                80
+            ],
+            "webhookId": "dad3089b-0bd3-446f-901f-9686c3a921d3"
+        },
+        {
+            "parameters": {
+                "formTitle": "HR CV Ranker",
+                "formDescription": "Paste the job description and upload multiple application PDFs.",
+                "formFields": {
+                    "values": [
+                        {
+                            "fieldLabel": "Job description",
+                            "fieldType": "textarea",
+                            "fieldName": "jobDescription",
+                            "placeholder": "Requirements, responsibilities, qualifications …",
+                            "requiredField": true
+                        },
+                        {
+                            "fieldLabel": "Applications (PDF)",
+                            "fieldType": "file",
+                            "fieldName": "applications",
+                            "acceptFileTypes": ".pdf",
+                            "requiredField": true
+                        }
+                    ]
+                },
+                "responseMode": "lastNode",
+                "options": {
+                    "buttonLabel": "Start ranking"
+                }
+            },
+            "id": "5ebc9bf8-169f-4dfa-843d-4326f7e60775",
+            "name": "Application Form",
+            "type": "n8n-nodes-base.formTrigger",
+            "typeVersion": 2.6,
+            "position": [
+                -896,
+                80
+            ],
+            "webhookId": "8759ab67-ba58-40af-b77d-af9660297d42"
+        },
+        {
+            "parameters": {
+                "jsCode": "const item = $input.first();\nconst jobDescription = item.json.jobDescription ?? '';\nconst binary = item.binary ?? {};\nconst fileKeys = Object.keys(binary).filter((key) => {\n  const normalized = key.toLowerCase();\n  return normalized === 'applications' || normalized.startsWith('applications');\n});\nfileKeys.sort();\nif (fileKeys.length === 0) {\n  throw new Error('No application files found in the form submission.');\n}\nreturn fileKeys.map((key, index) => {\n  const fileBinary = binary[key];\n  const fileName = fileBinary?.fileName ?? fileBinary?.file_name ?? key;\n  return {\n    json: {\n      jobDescription,\n      documentNumber: index + 1,\n      sourceFileKey: key,\n      fileName,\n    },\n    binary: {\n      data: fileBinary,\n    },\n  };\n});"
+            },
+            "id": "7a852a11-df56-40b0-8c80-52defda87a9b",
+            "name": "Split Applications",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -592,
+                80
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "pdf",
+                "options": {
+                    "joinPages": true,
+                    "keepSource": "json"
+                }
+            },
+            "id": "9756a8b7-a727-41eb-b6c5-1a17a02c69cd",
+            "name": "Extract PDF Text",
+            "type": "n8n-nodes-base.extractFromFile",
+            "typeVersion": 1.1,
+            "position": [
+                -352,
+                80
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const jobDescription = $('Split Applications').first().json.jobDescription;\nconst items = $input.all().sort((a, b) => (a.json.documentNumber ?? 0) - (b.json.documentNumber ?? 0));\nconst sections = [];\nconst documentFileNames = [];\nfor (const item of items) {\n  const num = item.json.documentNumber;\n  const text = (item.json.text ?? '').trim();\n  if (!text) {\n    throw new Error('Empty text after PDF extraction for document ' + num);\n  }\n  sections.push('--- DOCUMENT ' + num + ' ---\\n' + text);\n  documentFileNames.push({\n    documentNumber: num,\n    fileName: item.json.fileName ?? 'document-' + num + '.pdf',\n  });\n}\nreturn [{\n  json: {\n    jobDescription,\n    documentCount: items.length,\n    combinedText: sections.join('\\n\\n'),\n    documentFileNames,\n  },\n}];"
+            },
+            "id": "f3992f8d-c206-4cb8-b4e4-2b75e52e1e32",
+            "name": "Concatenate Texts",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -112,
+                80
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const source = $('Concatenate Texts').first().json;\nconst anonymized = $input.first().json;\nreturn [{\n  json: {\n    jobDescription: source.jobDescription,\n    documentCount: source.documentCount,\n    pseudonymizedApplications: anonymized.pseudonymizedText,\n    piiMappings: anonymized.detection ?? anonymized.piis ?? null,\n  },\n}];"
+            },
+            "id": "c74f766e-74e3-43b8-b5a7-513a286714c4",
+            "name": "Prepare Anonymization",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                384,
+                80
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const prepared = $('Prepare Anonymization').first().json;\nconst mergeData = $('Concatenate Texts').first().json;\nconst agentOutput = $input.first().json.output ?? {};\n\nconst fileNameByDoc = {};\nfor (const entry of mergeData.documentFileNames ?? []) {\n  fileNameByDoc[entry.documentNumber] = entry.fileName;\n}\n\nconst detections = prepared.piiMappings?.detections ?? [];\nconst pseudonymToText = {};\nfor (const detection of detections) {\n  if (detection?.pseudonym && detection?.text) {\n    pseudonymToText[detection.pseudonym] = detection.text;\n  }\n}\n\nconst pseudonymsByLength = Object.keys(pseudonymToText).sort((a, b) => b.length - a.length);\n\nfunction deanonymizeJustification(text) {\n  if (!text) {\n    return text;\n  }\n  let result = text;\n  for (const pseudonym of pseudonymsByLength) {\n    const escaped = pseudonym.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n    result = result.replace(new RegExp(escaped, 'g'), pseudonymToText[pseudonym]);\n  }\n  return result;\n}\n\nconst ranking = (agentOutput.ranking ?? []).map((row) => {\n  const justificationPseudonymized = row.justification ?? '';\n  return {\n    documentNumber: row.documentNumber,\n    fileName: fileNameByDoc[row.documentNumber] ?? null,\n    justificationPseudonymized,\n    justification: deanonymizeJustification(justificationPseudonymized),\n  };\n});\n\nreturn [{\n  json: {\n    jobDescription: prepared.jobDescription,\n    documentCount: prepared.documentCount,\n    ranking,\n  },\n}];"
+            },
+            "id": "2dddb84d-5ce6-43f3-a94c-079126dfdd98",
+            "name": "Prepare Ranking",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1024,
+                80
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ \"Job description:\\n\" + $(\"Prepare Anonymization\").item.json.jobDescription + \"\\n\\nNumber of applications: \" + $(\"Prepare Anonymization\").item.json.documentCount + \"\\n\\nPseudonymized applications (numbered):\\n\" + $(\"Prepare Anonymization\").item.json.pseudonymizedApplications }}",
+                "hasOutputParser": true,
+                "options": {
+                    "systemMessage": "You are an HR assistant for pre-screening job applications. All application texts are pseudonymized: people, places, organizations, and contact details were replaced with placeholders such as PER-1, LOC-1, ORG-1. Documents are separated by --- DOCUMENT n ---.\n\nScore each application against the job description and return a ranking from best to worst fit.\n\nImportant:\n- Use the same pseudonyms as in the source text in each justification (e.g. PER-1) so justifications can be re-identified automatically later.\n- Do not state real names or contact details.\n- Provide exactly one short justification per application (2–4 sentences)."
+                }
+            },
+            "id": "1230ac9d-5818-4efa-a000-e0d448f84b7c",
+            "name": "Rank CVs",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 3.1,
+            "position": [
+                672,
+                80
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const result = $input.first().json;\nconst ranking = result.ranking ?? [];\nif (ranking.length === 0) {\n  throw new Error('Ranking contains no entries.');\n}\n\nfunction escapeHtml(value) {\n  return String(value ?? '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;');\n}\n\nconst rows = ranking.map((entry, index) => {\n  const place = index + 1;\n  const fileName = escapeHtml(entry.fileName ?? 'Unknown file');\n  const justification = escapeHtml(entry.justification ?? '');\n  const topMark = place === 1 ? ' &#9733;' : '';\n  return '<tr>'\n    + '<td><strong>' + place + '</strong></td>'\n    + '<td>' + fileName + topMark + '</td>'\n    + '<td>' + justification + '</td>'\n    + '</tr>';\n}).join('\\n');\n\nconst htmlReport = '<div>'\n  + '<h1>HR CV Ranker – Results</h1>'\n  + '<p><strong>' + ranking.length + '</strong> application(s), sorted by fit (rank 1 = best).</p>'\n  + '<table border=\"1\" cellpadding=\"12\" cellspacing=\"0\">'\n  + '<thead><tr>'\n  + '<th align=\"left\">Rank</th>'\n  + '<th align=\"left\">File</th>'\n  + '<th align=\"left\">Justification</th>'\n  + '</tr></thead>'\n  + '<tbody>'\n  + rows\n  + '</tbody></table>'\n  + '</div>';\n\nreturn [{\n  json: {\n    ...result,\n    htmlReport,\n  },\n}];"
+            },
+            "id": "e52c5856-d38c-42a0-8671-8c44aadf23ad",
+            "name": "Build Ranking HTML",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1216,
+                80
+            ]
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "gpt-4.1-mini"
+                },
+                "options": {}
+            },
+            "id": "2ed864d4-6bfe-46be-8d87-9dce8906c52b",
+            "name": "OpenAI Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+            "typeVersion": 1.2,
+            "position": [
+                672,
+                272
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "sZv9TxO87WGCCjN6",
+                    "name": "OpenAI account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "text": "={{ $json.combinedText }}",
+                "textLabels": "PER,STR,LOC,ORG,MAIL,TEL",
+                "requestOptions": {}
+            },
+            "id": "36d7dbf1-e104-4c4e-bb52-11aaa4ab1b47",
+            "name": "Anonymize Concatenated Text",
+            "type": "@scitlab/n8n-nodes-doccape.doccape",
+            "typeVersion": 2,
+            "position": [
+                144,
+                80
+            ],
+            "credentials": {
+                "doccapeApi": {
+                    "id": "BP6ILW2kWQSACUdy",
+                    "name": "Doccape account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsonSchemaExample": "{ \"ranking\": [ { \"documentNumber\": 1, \"justification\": \"PER-1 is a strong match because ...\" } ] }"
+            },
+            "id": "58e5391e-8a2d-451c-95b2-71b368f036ea",
+            "name": "Ranking Output Parser",
+            "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+            "typeVersion": 1.3,
+            "position": [
+                816,
+                272
+            ],
+            "retryOnFail": true,
+            "alwaysOutputData": false
+        }
+    ],
+    "connections": {
+        "Application Form": {
+            "main": [
+                [
+                    {
+                        "node": "Split Applications",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Applications": {
+            "main": [
+                [
+                    {
+                        "node": "Extract PDF Text",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract PDF Text": {
+            "main": [
+                [
+                    {
+                        "node": "Concatenate Texts",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Concatenate Texts": {
+            "main": [
+                [
+                    {
+                        "node": "Anonymize Concatenated Text",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Anonymization": {
+            "main": [
+                [
+                    {
+                        "node": "Rank CVs",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Ranking": {
+            "main": [
+                [
+                    {
+                        "node": "Build Ranking HTML",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Rank CVs": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Ranking",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Ranking HTML": {
+            "main": [
+                [
+                    {
+                        "node": "Form Completion",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Rank CVs",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Anonymize Concatenated Text": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Anonymization",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Ranking Output Parser": {
+            "ai_outputParser": [
+                [
+                    {
+                        "node": "Rank CVs",
+                        "type": "ai_outputParser",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "nodeGroups": [
+        {
+            "id": "00223676-6de6-455d-b947-89eb0d01843e",
+            "nodeIds": [
+                "1230ac9d-5818-4efa-a000-e0d448f84b7c",
+                "58e5391e-8a2d-451c-95b2-71b368f036ea",
+                "2dddb84d-5ce6-43f3-a94c-079126dfdd98",
+                "e52c5856-d38c-42a0-8671-8c44aadf23ad",
+                "2ed864d4-6bfe-46be-8d87-9dce8906c52b"
+            ],
+            "name": "AI Ranking"
+        },
+        {
+            "id": "2e0cb412-141b-4ee3-93ad-434cf8f74775",
+            "nodeIds": [
+                "7a852a11-df56-40b0-8c80-52defda87a9b",
+                "9756a8b7-a727-41eb-b6c5-1a17a02c69cd"
+            ],
+            "name": "Text Extraction"
+        },
+        {
+            "id": "2d88edff-6e12-4a6a-8513-c9ac01864f58",
+            "nodeIds": [
+                "36d7dbf1-e104-4c4e-bb52-11aaa4ab1b47",
+                "c74f766e-74e3-43b8-b5a7-513a286714c4"
+            ],
+            "name": "Anonymization"
+        }
+    ],
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "2bd0699b5760579f27f162a7ec2aff1b03ea365014fedad88704d56556efa2d1"
+    }
+}
